@@ -1,0 +1,34 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>RESP AI Project 1</title>
+  <style>
+    body { font-family: Arial, sans-serif; }
+    .tab { cursor: pointer; padding: 10px; display: inline-block; background: #ddd; margin-right: 5px; }
+    .tab.active { background: #bbb; }
+    iframe { width: 100%; height: 80vh; border: none; }
+  </style>
+  <script>
+    function show(tab) {
+      document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+      document.querySelectorAll('iframe').forEach(f => f.style.display = 'none');
+      document.getElementById(tab + '-tab').classList.add('active');
+      document.getElementById(tab).style.display = 'block';
+    }
+    window.onload = function() { show('readme'); };
+  </script>
+</head>
+<body>
+  <div>
+    <span id="readme-tab" class="tab" onclick="show('readme')">Readme</span>
+    <span id="script-tab" class="tab" onclick="show('script')">Script</span>
+    <span id="results-tab" class="tab" onclick="show('results')">Results</span>
+    <span id="reports-tab" class="tab" onclick="show('reports')">Reports</span>
+  </div>
+  <iframe id="readme" src="readme.html"></iframe>
+  <iframe id="script" src="script.html" style="display:none"></iframe>
+  <iframe id="results" src="results.html" style="display:none"></iframe>
+  <iframe id="reports" src="reports.html" style="display:none"></iframe>
+</body>
+</html>

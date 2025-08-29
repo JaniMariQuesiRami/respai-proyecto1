@@ -1,0 +1,21 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <title>Results</title>
+</head>
+<body>
+  <h1>Key Results</h1>
+  <p>This project evaluates fairness metrics on the COMPAS dataset. The baseline logistic regression model achieves around 0.66 accuracy and 0.71 ROC-AUC, but reveals disparities in positive prediction rate (PPR) and true positive rate (TPR) across race and sex, with disparate impact below 0.8 for several groups.</p>
+  <h2>Report PDF</h2>
+  <iframe src="results.pdf" width="100%" height="600px"></iframe>
+  <h2>Figures</h2>
+  <img src="reports/figures/dist_race.png" alt="Distribution by race" width="600">
+  <img src="reports/figures/dist_sex.png" alt="Distribution by sex" width="600">
+  <img src="reports/figures/target_rate_by_race.png" alt="Target rate by race" width="600">
+  <img src="reports/figures/target_rate_by_sex.png" alt="Target rate by sex" width="600">
+  <img src="reports/figures/compare_ppr_race.png" alt="PPR by race" width="600">
+  <img src="reports/figures/compare_tpr_race.png" alt="TPR by race" width="600">
+  <img src="reports/figures/tpr_ppr_race_sex.png" alt="TPR and PPR by race and sex" width="600">
+</body>
+</html>

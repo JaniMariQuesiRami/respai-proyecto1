@@ -1,0 +1,584 @@
+<!DOCTYPE html>
+<html><head><meta charset="UTF-8"><title>Notebook</title></head><body>
+<pre><code>!pip install numpy pandas matplotlib scikit-learn fairlearn</code></pre>
+<pre><code>import numpy as np
+import pandas as pd
+import matplotlib.pyplot as plt</code></pre>
+<pre><code>file_path = &#x27;./cox-violent-parsed_filt.csv&#x27;
+data = pd.read_csv(file_path)</code></pre>
+<pre>## False Positive Rate by Race — General Recidivism
+We consider a positive prediction when `score_text` indicates &quot;High&quot; risk for general recidivism (COMPAS risk of recidivism). False positives are those predicted positive among individuals who did not recidivate (`is_recid == 0`).</pre>
+<pre><code>required_cols = {&quot;race&quot;, &quot;is_violent_recid&quot;, &quot;v_score_text&quot;}
+missing = [c for c in required_cols if c not in data.columns]
+if missing:
+    raise KeyError(f&quot;Missing columns in dataset: {missing}&quot;)
+
+_df = data.copy()
+
+_df = _df[_df[&quot;is_violent_recid&quot;].isin([0, 1])]
+
+pos_labels = {&quot;High&quot;}
+_df[&quot;pred_positive&quot;] = _df[&quot;v_score_text&quot;].fillna(&quot;&quot;).astype(str).str.strip().isin(pos_labels)
+
+race_idx = _df[&quot;race&quot;]
+negatives = (_df[&quot;is_violent_recid&quot;] == 0).groupby(race_idx, dropna=False).sum()
+false_pos = (((_df[&quot;is_violent_recid&quot;] == 0) &amp; _df[&quot;pred_positive&quot;]).groupby(race_idx, dropna=False).sum())
+
+fpr = (false_pos / negatives).replace([np.inf, -np.inf], np.nan)
+
+fpr_df = (
+    pd.DataFrame({
+        &quot;race&quot;: negatives.index.astype(str),
+        &quot;negatives&quot;: negatives.values,
+        &quot;false_positives&quot;: false_pos.values,
+        &quot;fpr&quot;: fpr.values,
+    })
+    .sort_values(&quot;fpr&quot;, ascending=False)
+    .reset_index(drop=True)
+)
+
+try:
+    display(fpr_df)
+except Exception:
+    print(fpr_df)</code></pre>
+<pre><code>import numpy as np
+import pandas as pd
+import matplotlib.pyplot as plt
+
+required_cols_gen = {&quot;race&quot;, &quot;is_recid&quot;, &quot;score_text&quot;}
+missing_gen = [c for c in required_cols_gen if c not in data.columns]
+if missing_gen:
+    raise KeyError(f&quot;Missing columns in dataset for general recidivism: {missing_gen}&quot;)
+
+_df_g = data.copy()
+_df_g = _df_g[_df_g[&quot;is_recid&quot;].isin([0, 1])]
+_df_g[&quot;pred_positive_gen&quot;] = _df_g[&quot;score_text&quot;].fillna(&quot;&quot;).astype(str).str.strip().eq(&quot;High&quot;)
+
+race_idx_g = _df_g[&quot;race&quot;]
+negatives_g = (_df_g[&quot;is_recid&quot;] == 0).groupby(race_idx_g, dropna=False).sum()
+false_pos_g = (((_df_g[&quot;is_recid&quot;] == 0) &amp; _df_g[&quot;pred_positive_gen&quot;]).groupby(race_idx_g, dropna=False).sum())
+
+fpr_g = (false_pos_g / negatives_g).replace([np.inf, -np.inf], np.nan)
+
+fpr_gen_df = (
+    pd.DataFrame({
+        &quot;race&quot;: negatives_g.index.astype(str),
+        &quot;negatives&quot;: negatives_g.values,
+        &quot;false_positives&quot;: false_pos_g.values,
+        &quot;fpr&quot;: fpr_g.values,
+    })
+    .sort_values(&quot;fpr&quot;, ascending=False)
+    .reset_index(drop=True)
+)
+
+_df_v = data.copy()
+_df_v = _df_v[_df_v[&quot;is_violent_recid&quot;].isin([0, 1])]
+_df_v[&quot;pred_positive_v&quot;] = _df_v[&quot;v_score_text&quot;].fillna(&quot;&quot;).astype(str).str.strip().eq(&quot;High&quot;)
+
+race_idx_v = _df_v[&quot;race&quot;]
+negatives_v = (_df_v[&quot;is_violent_recid&quot;] == 0).groupby(race_idx_v, dropna=False).sum()
+false_pos_v = (((_df_v[&quot;is_violent_recid&quot;] == 0) &amp; _df_v[&quot;pred_positive_v&quot;]).groupby(race_idx_v, dropna=False).sum())
+
+fpr_v = (false_pos_v / negatives_v).replace([np.inf, -np.inf], np.nan)
+
+fpr_viol_df = (
+    pd.DataFrame({
+        &quot;race&quot;: negatives_v.index.astype(str),
+        &quot;negatives&quot;: negatives_v.values,
+        &quot;false_positives&quot;: false_pos_v.values,
+        &quot;fpr&quot;: fpr_v.values,
+    })
+    .sort_values(&quot;fpr&quot;, ascending=False)
+    .reset_index(drop=True)
+)
+
+fig, axes = plt.subplots(1, 2, figsize=(14, 5), sharey=True)
+
+vals_v = fpr_viol_df[&quot;fpr&quot;] * 100
+axes[0].bar(fpr_viol_df[&quot;race&quot;], vals_v, color=&quot;#4C78A8&quot;)
+axes[0].set_title(&quot;FPR by Race — Violent (High = Positive)&quot;)
+axes[0].set_ylabel(&quot;FPR (%)&quot;)
+axes[0].set_xlabel(&quot;Race&quot;)
+for i, v in enumerate(vals_v):
+    if pd.isna(v):
+        continue
+    axes[0].text(i, v + max(0.5, (vals_v.max() if len(vals_v) else 0) * 0.03), f&quot;{v:.1f}%&quot;, ha=&quot;center&quot;, va=&quot;bottom&quot;, fontsize=9)
+
+vals_g = fpr_gen_df[&quot;fpr&quot;] * 100
+axes[1].bar(fpr_gen_df[&quot;race&quot;], vals_g, color=&quot;#F58518&quot;)
+axes[1].set_title(&quot;FPR by Race — General (High = Positive)&quot;)
+axes[1].set_xlabel(&quot;Race&quot;)
+for i, v in enumerate(vals_g):
+    if pd.isna(v):
+        continue
+    axes[1].text(i, v + max(0.5, (vals_g.max() if len(vals_g) else 0) * 0.03), f&quot;{v:.1f}%&quot;, ha=&quot;center&quot;, va=&quot;bottom&quot;, fontsize=9)
+
+plt.tight_layout()
+plt.show()
+
+try:
+    from IPython.display import display
+    display(fpr_viol_df)
+    display(fpr_gen_df)
+except Exception:
+    print(fpr_viol_df)
+    print(fpr_gen_df)</code></pre>
+<pre>## Fairness metrics by race: FNR, Demographic Parity, Equal Opportunity
+We compute, by race:
+- False Negative Rate (FNR): FN / Positives
+- Demographic Parity (DP): Predicted positive rate
+- Equal Opportunity (EO): True Positive Rate (TPR)
+
+We report these for violent risk (v_score_text) and general recidivism (score_text), using &quot;High&quot; as the positive prediction in both cases.</pre>
+<pre><code>import numpy as np
+import pandas as pd
+import matplotlib.pyplot as plt
+
+def compute_metrics(df, label_col, pred_positive_series, group_col=&quot;race&quot;):
+    df = df.copy()
+    df = df[df[label_col].isin([0, 1])]
+    df[&quot;pred_pos&quot;] = pred_positive_series.reindex(df.index).astype(bool)
+
+    P = (df[label_col] == 1).groupby(df[group_col], dropna=False).sum()
+    N = (df[label_col] == 0).groupby(df[group_col], dropna=False).sum()
+    TP = (((df[label_col] == 1) &amp; df[&quot;pred_pos&quot;]).groupby(df[group_col], dropna=False).sum())
+    FN = (((df[label_col] == 1) &amp; (~df[&quot;pred_pos&quot;])) .groupby(df[group_col], dropna=False).sum())
+    FP = (((df[label_col] == 0) &amp; df[&quot;pred_pos&quot;]).groupby(df[group_col], dropna=False).sum())
+
+    # Metrics
+    FNR = (FN / P).replace([np.inf, -np.inf], np.nan)
+    TPR = (TP / P).replace([np.inf, -np.inf], np.nan)
+    DP = (df[&quot;pred_pos&quot;].groupby(df[group_col], dropna=False).mean())
+
+    out = pd.DataFrame({
+        group_col: P.index.astype(str),
+        &quot;P&quot;: P.values,
+        &quot;N&quot;: N.values,
+        &quot;TP&quot;: TP.values,
+        &quot;FN&quot;: FN.values,
+        &quot;FP&quot;: FP.values,
+        &quot;FNR&quot;: FNR.values,
+        &quot;TPR&quot;: TPR.values,
+        &quot;DP&quot;: DP.values,
+    }).sort_values(group_col).reset_index(drop=True)
+    return out
+
+# Violent: positive if v_score_text == &#x27;High&#x27;
+_df_v = data.copy()
+viol_pred = _df_v[&quot;v_score_text&quot;].fillna(&quot;&quot;).astype(str).str.strip().eq(&quot;High&quot;)
+metrics_violent = compute_metrics(_df_v, label_col=&quot;is_violent_recid&quot;, pred_positive_series=viol_pred)
+
+# General: positive if score_text == &#x27;High&#x27;
+_df_g2 = data.copy()
+gen_pred = _df_g2[&quot;score_text&quot;].fillna(&quot;&quot;).astype(str).str.strip().eq(&quot;High&quot;)
+metrics_general = compute_metrics(_df_g2, label_col=&quot;is_recid&quot;, pred_positive_series=gen_pred)
+
+fig, axes = plt.subplots(1, 2, figsize=(12, 4))
+axes[0].bar(metrics_general[&quot;race&quot;], metrics_general[&quot;TPR&quot;] * 100, color=&quot;#4C78A8&quot;)
+axes[0].set_title(&quot;Equal Opportunity (TPR) — General Recidivism&quot;)
+axes[0].set_ylabel(&quot;TPR (%)&quot;)
+axes[0].set_xlabel(&quot;Race&quot;)
+
+axes[1].bar(metrics_general[&quot;race&quot;], metrics_general[&quot;DP&quot;] * 100, color=&quot;#F58518&quot;)
+axes[1].set_title(&quot;Demographic Parity (Positive Rate) — General Recidivism&quot;)
+axes[1].set_ylabel(&quot;Rate (%)&quot;)
+axes[1].set_xlabel(&quot;Race&quot;)
+plt.tight_layout()
+plt.show()
+
+fig, axes = plt.subplots(1, 2, figsize=(12, 4))
+axes[0].bar(metrics_violent[&quot;race&quot;], metrics_violent[&quot;TPR&quot;] * 100, color=&quot;#54A24B&quot;)
+axes[0].set_title(&quot;Equal Opportunity (TPR) — Violent&quot;)
+axes[0].set_ylabel(&quot;TPR (%)&quot;)
+axes[0].set_xlabel(&quot;Race&quot;)
+
+axes[1].bar(metrics_violent[&quot;race&quot;], metrics_violent[&quot;DP&quot;] * 100, color=&quot;#E45756&quot;)
+axes[1].set_title(&quot;Demographic Parity (Positive Rate) — Violent&quot;)
+axes[1].set_ylabel(&quot;Rate (%)&quot;)
+axes[1].set_xlabel(&quot;Race&quot;)
+plt.tight_layout()
+plt.show()</code></pre>
+<pre># Baseline ML Pipeline for COMPAS — Predicting is_recid
+This section builds a reproducible baseline to predict general recidivism (`is_recid`), evaluates overall performance, reports group metrics by sensitive attributes (race, sex), computes fairness metrics, and prepares a baseline for mitigation.</pre>
+<pre><code>import os
+from pathlib import Path
+import numpy as np
+import pandas as pd
+import matplotlib.pyplot as plt
+
+reports_dir = Path(&quot;reports&quot;); reports_dir.mkdir(parents=True, exist_ok=True)
+figs_dir = reports_dir / &quot;figures&quot;; figs_dir.mkdir(parents=True, exist_ok=True)
+
+_df = data.copy()
+
+_df = _df[_df[&quot;is_recid&quot;].isin([0, 1])].copy()
+
+for col in [&quot;race&quot;, &quot;sex&quot;, &quot;score_text&quot;]:
+    if col in _df.columns:
+        _df[col] = _df[col].astype(str).str.strip()
+
+race_counts = _df[&quot;race&quot;].value_counts(dropna=False)
+sex_counts = _df[&quot;sex&quot;].value_counts(dropna=False)
+class_counts = _df[&quot;is_recid&quot;].value_counts().sort_index()
+
+print(&quot;Counts by race:\n&quot;, race_counts)
+print(&quot;\nCounts by sex:\n&quot;, sex_counts)
+print(&quot;\nClass balance (is_recid=0/1):\n&quot;, class_counts)
+
+race_pct = (race_counts / len(_df) * 100).round(2)
+sex_pct = (sex_counts / len(_df) * 100).round(2)
+print(&quot;\nPercent by race (%):\n&quot;, race_pct)
+print(&quot;\nPercent by sex (%):\n&quot;, sex_pct)
+
+plt.figure(figsize=(7,4))
+(_df[&quot;race&quot;].value_counts().sort_values(ascending=False)).plot(kind=&quot;bar&quot;, color=&quot;#4C78A8&quot;)
+plt.title(&quot;Distribution of Race&quot;)
+plt.ylabel(&quot;Count&quot;)
+plt.tight_layout(); plt.savefig(figs_dir / &quot;dist_race.png&quot;, dpi=150); plt.show()
+
+plt.figure(figsize=(6,4))
+(_df[&quot;sex&quot;].value_counts().sort_values(ascending=False)).plot(kind=&quot;bar&quot;, color=&quot;#F58518&quot;)
+plt.title(&quot;Distribution of Sex&quot;)
+plt.ylabel(&quot;Count&quot;)
+plt.tight_layout(); plt.savefig(figs_dir / &quot;dist_sex.png&quot;, dpi=150); plt.show()
+
+plt.figure(figsize=(6,4))
+(_df.groupby(&quot;race&quot;)[&quot;is_recid&quot;].mean().sort_values(ascending=False) * 100).plot(kind=&quot;bar&quot;, color=&quot;#54A24B&quot;)
+plt.title(&quot;Target Rate by Race (is_recid=1, %)&quot;)
+plt.ylabel(&quot;Percent of Recidivism&quot;)
+plt.tight_layout(); plt.savefig(figs_dir / &quot;target_rate_by_race.png&quot;, dpi=150); plt.show()
+
+plt.figure(figsize=(6,4))
+(_df.groupby(&quot;sex&quot;)[&quot;is_recid&quot;].mean().sort_values(ascending=False) * 100).plot(kind=&quot;bar&quot;, color=&quot;#E45756&quot;)
+plt.title(&quot;Target Rate by Sex (is_recid=1, %)&quot;)
+plt.ylabel(&quot;Percent of Recidivism&quot;)
+plt.tight_layout(); plt.savefig(figs_dir / &quot;target_rate_by_sex.png&quot;, dpi=150); plt.show()
+
+print(&quot;Saved figures to:&quot;, figs_dir.resolve())
+</code></pre>
+<pre><code>from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import OneHotEncoder, StandardScaler
+from sklearn.compose import ColumnTransformer
+from sklearn.pipeline import Pipeline
+from sklearn.linear_model import LogisticRegression
+from sklearn.metrics import (
+    accuracy_score, precision_score, recall_score, f1_score, roc_auc_score, classification_report
+)
+from sklearn.impute import SimpleImputer
+from joblib import dump
+
+num_features = [c for c in [&quot;age&quot;, &quot;priors_count&quot;, &quot;decile_score&quot;] if c in _df.columns]
+cat_features = [c for c in [&quot;race&quot;, &quot;sex&quot;] if c in _df.columns]
+
+X = _df[num_features + cat_features].copy()
+y = _df[&quot;is_recid&quot;].astype(int).copy()
+
+X_train, X_test, y_train, y_test = train_test_split(
+    X, y, test_size=0.3, random_state=42, stratify=y
+)
+
+preprocessor = ColumnTransformer([
+    (&quot;num&quot;, Pipeline([(&quot;impute&quot;, SimpleImputer(strategy=&quot;median&quot;)),
+                      (&quot;scale&quot;, StandardScaler())]), num_features),
+    (&quot;cat&quot;, Pipeline([(&quot;impute&quot;, SimpleImputer(strategy=&quot;most_frequent&quot;)),
+                      (&quot;ohe&quot;, OneHotEncoder(drop=&quot;first&quot;, handle_unknown=&quot;ignore&quot;))]), cat_features),
+])
+
+model = LogisticRegression(max_iter=1000, class_weight=&quot;balanced&quot;)
+
+pipe = Pipeline(steps=[(&quot;pre&quot;, preprocessor), (&quot;clf&quot;, model)])
+pipe.fit(X_train, y_train)
+
+y_pred = pipe.predict(X_test)
+y_prob = pipe.predict_proba(X_test)[:, 1]
+
+metrics_overall = {
+    &quot;accuracy&quot;: accuracy_score(y_test, y_pred),
+    &quot;precision&quot;: precision_score(y_test, y_pred, zero_division=0),
+    &quot;recall&quot;: recall_score(y_test, y_pred, zero_division=0),
+    &quot;f1&quot;: f1_score(y_test, y_pred, zero_division=0),
+    &quot;roc_auc&quot;: roc_auc_score(y_test, y_prob) if len(np.unique(y_test)) &gt; 1 else np.nan,
+}
+print(&quot;Overall metrics:&quot;, metrics_overall)
+print(&quot;\nClassification report:\n&quot;, classification_report(y_test, y_pred, zero_division=0))
+
+pd.DataFrame([metrics_overall]).to_csv(reports_dir / &quot;metrics_overall.csv&quot;, index=False)
+
+dump(pipe, reports_dir / &quot;base_logreg.joblib&quot;)
+print(&quot;Saved:&quot;, (reports_dir / &quot;metrics_overall.csv&quot;).resolve())
+print(&quot;Saved model to:&quot;, (reports_dir / &quot;base_logreg.joblib&quot;).resolve())
+</code></pre>
+<pre><code>import numpy as np
+import pandas as pd
+import matplotlib.pyplot as plt
+
+def confusion_by_group(y_true, y_pred, group):
+    df = pd.DataFrame({&quot;y_true&quot;: y_true, &quot;y_pred&quot;: y_pred, &quot;group&quot;: group})
+    df[&quot;y_true&quot;] = df[&quot;y_true&quot;].astype(int)
+    df[&quot;y_pred&quot;] = df[&quot;y_pred&quot;].astype(int)
+    groups = df[&quot;group&quot;].astype(str)
+    TP = ((df[&quot;y_true&quot;] == 1) &amp; (df[&quot;y_pred&quot;] == 1)).groupby(groups, dropna=False).sum()
+    FP = ((df[&quot;y_true&quot;] == 0) &amp; (df[&quot;y_pred&quot;] == 1)).groupby(groups, dropna=False).sum()
+    TN = ((df[&quot;y_true&quot;] == 0) &amp; (df[&quot;y_pred&quot;] == 0)).groupby(groups, dropna=False).sum()
+    FN = ((df[&quot;y_true&quot;] == 1) &amp; (df[&quot;y_pred&quot;] == 0)).groupby(groups, dropna=False).sum()
+    n = df.groupby(groups, dropna=False).size()
+    out = pd.DataFrame({&quot;group&quot;: TP.index.astype(str), &quot;TP&quot;: TP.values, &quot;FP&quot;: FP.values, &quot;TN&quot;: TN.values, &quot;FN&quot;: FN.values, &quot;n&quot;: n.values})
+    return out
+
+def safe_div(a, b):
+    a = a.astype(float)
+    b = b.astype(float)
+    with np.errstate(divide=&#x27;ignore&#x27;, invalid=&#x27;ignore&#x27;):
+        res = a / b
+        res[~np.isfinite(res)] = np.nan
+    return res
+
+def group_fairness_report(y_true, y_pred, group, group_name):
+    conf = confusion_by_group(y_true, y_pred, group)
+    TP, FP, TN, FN, n = conf.TP, conf.FP, conf.TN, conf.FN, conf.n
+    PPR = safe_div(TP + FP, n)
+    TPR = safe_div(TP, TP + FN)
+    FPR = safe_div(FP, FP + TN)
+    FNR = safe_div(FN, FN + TP)
+    PPV = safe_div(TP, TP + FP)
+    TNR = safe_div(TN, TN + FP)
+    BACC = (TPR + TNR) / 2.0
+
+    report = pd.DataFrame({
+        group_name: conf[&quot;group&quot;],
+        &quot;n&quot;: n.values,
+        &quot;PPR&quot;: PPR.values,
+        &quot;TPR&quot;: TPR.values,
+        &quot;FPR&quot;: FPR.values,
+        &quot;FNR&quot;: FNR.values,
+        &quot;PPV&quot;: PPV.values,
+        &quot;TNR&quot;: TNR.values,
+        &quot;BACC&quot;: BACC.values,
+    }).sort_values(&quot;n&quot;, ascending=False).reset_index(drop=True)
+
+    ref_ppr = report.loc[0, &quot;PPR&quot;] if len(report) else np.nan
+    for col in [&quot;PPR&quot;, &quot;TPR&quot;, &quot;FPR&quot;, &quot;FNR&quot;, &quot;PPV&quot;, &quot;TNR&quot;, &quot;BACC&quot;]:
+        report[f&quot;{col}_diff_vs_ref&quot;] = report[col] - report.loc[0, col]
+    report[&quot;DI_vs_ref&quot;] = safe_div(report[&quot;PPR&quot;], ref_ppr) if pd.notna(ref_ppr) else np.nan
+
+    return report
+
+race_test = X_test[&quot;race&quot;].astype(str)
+sex_test = X_test[&quot;sex&quot;].astype(str)
+
+report_race = group_fairness_report(y_test, y_pred, race_test, group_name=&quot;race&quot;)
+report_sex = group_fairness_report(y_test, y_pred, sex_test, group_name=&quot;sex&quot;)
+
+report_race.to_csv(reports_dir / &quot;metrics_by_group_race.csv&quot;, index=False)
+report_sex.to_csv(reports_dir / &quot;metrics_by_group_sex.csv&quot;, index=False)
+print(&quot;Saved group reports to:&quot;, reports_dir.resolve())
+
+fig, axes = plt.subplots(2, 2, figsize=(12, 8), sharey=False)
+# Race TPR
+axes[0, 0].bar(report_race[&quot;race&quot;], report_race[&quot;TPR&quot;] * 100, color=&quot;#4C78A8&quot;)
+axes[0, 0].set_title(&quot;TPR by Race (Test)&quot;)
+axes[0, 0].set_ylabel(&quot;TPR (%)&quot;)
+axes[0, 0].tick_params(axis=&#x27;x&#x27;, rotation=30)
+# Race PPR
+axes[0, 1].bar(report_race[&quot;race&quot;], report_race[&quot;PPR&quot;] * 100, color=&quot;#F58518&quot;)
+axes[0, 1].set_title(&quot;PPR by Race (Test)&quot;)
+axes[0, 1].set_ylabel(&quot;PPR (%)&quot;)
+axes[0, 1].tick_params(axis=&#x27;x&#x27;, rotation=30)
+# Sex TPR
+axes[1, 0].bar(report_sex[&quot;sex&quot;], report_sex[&quot;TPR&quot;] * 100, color=&quot;#54A24B&quot;)
+axes[1, 0].set_title(&quot;TPR by Sex (Test)&quot;)
+axes[1, 0].set_ylabel(&quot;TPR (%)&quot;)
+# Sex PPR
+axes[1, 1].bar(report_sex[&quot;sex&quot;], report_sex[&quot;PPR&quot;] * 100, color=&quot;#E45756&quot;)
+axes[1, 1].set_title(&quot;PPR by Sex (Test)&quot;)
+axes[1, 1].set_ylabel(&quot;PPR (%)&quot;)
+
+fig.tight_layout()
+fig.savefig(figs_dir / &quot;tpr_ppr_race_sex.png&quot;, dpi=150)
+plt.show()</code></pre>
+<pre><code>thresholds = [0.3, 0.5, 0.7]
+all_reports = []
+for th in thresholds:
+    y_pred_th = (y_prob &gt;= th).astype(int)
+    rep_r = group_fairness_report(y_test, y_pred_th, race_test, group_name=&quot;race&quot;)
+    rep_r.insert(1, &quot;threshold&quot;, th)
+    rep_s = group_fairness_report(y_test, y_pred_th, sex_test, group_name=&quot;sex&quot;)
+    rep_s.insert(1, &quot;threshold&quot;, th)
+    all_reports.append((th, rep_r, rep_s))
+
+for th, rep_r, rep_s in all_reports:
+    rep_r.to_csv(reports_dir / f&quot;metrics_by_group_race_th_{th}.csv&quot;, index=False)
+    rep_s.to_csv(reports_dir / f&quot;metrics_by_group_sex_th_{th}.csv&quot;, index=False)
+print(&quot;Saved threshold sweep reports to:&quot;, reports_dir.resolve())
+</code></pre>
+<pre>## Model Card — Baseline Logistic Regression for is_recid
+- Data: COMPAS (filtered to valid `is_recid` labels). Features used: age, priors_count, decile_score, race, sex.
+- Task: Binary classification (predict `is_recid`).
+- Split: 70/30 stratified by target.
+- Preprocessing: StandardScaler (numeric), OneHotEncoder(drop=&quot;first&quot;) (categorical).
+- Model: LogisticRegression(max_iter=1000, class_weight=&quot;balanced&quot;).
+- Metrics (test): See `reports/metrics_overall.csv`. Group fairness: see CSVs under `reports/` and figures under `reports/figures/`.
+- Fairness notes: Inspect TPR (Equal Opportunity) and PPR (Demographic Parity) gaps across race and sex; threshold sweep CSVs show trade-offs.
+- Limitations: COMPAS contains known biases; features correlate with sensitive attributes; threshold choice impacts fairness; baseline only—no mitigation applied yet.</pre>
+<pre>## Bias Mitigation Strategies — Algorithm-level and Post-processing
+
+This section applies: 
+- Algorithm-level constraints with Fairlearn reductions (Demographic Parity, Equalized Odds).
+- Reweighting to balance group influence at training time.
+- Post-processing group-specific thresholds via ThresholdOptimizer.
+
+We evaluate overall metrics and group fairness reports (race and sex) for each approach and save CSVs under `reports/`. Figures can be added similarly if needed.</pre>
+<pre><code>import numpy as np
+import pandas as pd
+from pathlib import Path
+from sklearn.linear_model import LogisticRegression
+from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score, roc_auc_score
+from fairlearn.reductions import ExponentiatedGradient, DemographicParity, EqualizedOdds
+from fairlearn.postprocessing import ThresholdOptimizer
+
+reports_dir = Path(&quot;reports&quot;); reports_dir.mkdir(exist_ok=True)
+
+def overall_metrics(y_true, y_pred, y_prob=None):
+    return {
+        &quot;accuracy&quot;: accuracy_score(y_true, y_pred),
+        &quot;precision&quot;: precision_score(y_true, y_pred, zero_division=0),
+        &quot;recall&quot;: recall_score(y_true, y_pred, zero_division=0),
+        &quot;f1&quot;: f1_score(y_true, y_pred, zero_division=0),
+        &quot;roc_auc&quot;: roc_auc_score(y_true, y_prob) if y_prob is not None and len(np.unique(y_true)) &gt; 1 else np.nan,
+    }
+
+A_race = X_train[&quot;race&quot;].astype(str)
+A_race_test = X_test[&quot;race&quot;].astype(str)
+A_sex = X_train[&quot;sex&quot;].astype(str)
+A_sex_test = X_test[&quot;sex&quot;].astype(str)
+
+from sklearn.base import clone
+pre = clone(pipe.named_steps[&quot;pre&quot;])  # reuse preprocessing
+base_lr = LogisticRegression(max_iter=1000, class_weight=&quot;balanced&quot;)
+
+X_train_t = pre.fit_transform(X_train, y_train)
+X_test_t = pre.transform(X_test)
+
+results = []
+
+# 1) Reductions — Demographic Parity (by race)
+constraint = DemographicParity()
+mit_dp_race = ExponentiatedGradient(base_lr, constraints=constraint)
+mit_dp_race.fit(X_train_t, y_train, sensitive_features=A_race)
+y_pred_dp_race = mit_dp_race.predict(X_test_t)
+y_prob_dp_race = None  # randomized classifier; use labels only for metrics
+metrics_dp_race = overall_metrics(y_test, y_pred_dp_race, y_prob_dp_race)
+results.append((&quot;reductions_dp_race&quot;, metrics_dp_race))
+
+# Group reports
+rep_r_dp = group_fairness_report(y_test, y_pred_dp_race, A_race_test, group_name=&quot;race&quot;)
+rep_s_dp = group_fairness_report(y_test, y_pred_dp_race, A_sex_test, group_name=&quot;sex&quot;)
+rep_r_dp.to_csv(reports_dir / &quot;mit_dp_race_metrics_by_group_race.csv&quot;, index=False)
+rep_s_dp.to_csv(reports_dir / &quot;mit_dp_race_metrics_by_group_sex.csv&quot;, index=False)
+
+# 2) Reductions — Equalized Odds (by race)
+constraint = EqualizedOdds()
+mit_eo_race = ExponentiatedGradient(base_lr, constraints=constraint)
+mit_eo_race.fit(X_train_t, y_train, sensitive_features=A_race)
+y_pred_eo_race = mit_eo_race.predict(X_test_t)
+metrics_eo_race = overall_metrics(y_test, y_pred_eo_race, None)
+results.append((&quot;reductions_eo_race&quot;, metrics_eo_race))
+rep_r_eo = group_fairness_report(y_test, y_pred_eo_race, A_race_test, group_name=&quot;race&quot;)
+rep_s_eo = group_fairness_report(y_test, y_pred_eo_race, A_sex_test, group_name=&quot;sex&quot;)
+rep_r_eo.to_csv(reports_dir / &quot;mit_eo_race_metrics_by_group_race.csv&quot;, index=False)
+rep_s_eo.to_csv(reports_dir / &quot;mit_eo_race_metrics_by_group_sex.csv&quot;, index=False)
+
+# 3) Simple Reweighting (by race)
+race_counts = A_race.value_counts()
+race_weights = (1.0 / race_counts).to_dict()
+sample_w = A_race.map(race_weights).astype(float)
+
+lr_rw = LogisticRegression(max_iter=1000, class_weight=None)
+lr_rw.fit(X_train_t, y_train, sample_weight=sample_w)
+y_pred_rw = lr_rw.predict(X_test_t)
+y_prob_rw = lr_rw.predict_proba(X_test_t)[:, 1]
+metrics_rw = overall_metrics(y_test, y_pred_rw, y_prob_rw)
+results.append((&quot;reweight_race&quot;, metrics_rw))
+rep_r_rw = group_fairness_report(y_test, y_pred_rw, A_race_test, group_name=&quot;race&quot;)
+rep_s_rw = group_fairness_report(y_test, y_pred_rw, A_sex_test, group_name=&quot;sex&quot;)
+rep_r_rw.to_csv(reports_dir / &quot;mit_reweight_race_metrics_by_group_race.csv&quot;, index=False)
+rep_s_rw.to_csv(reports_dir / &quot;mit_reweight_race_metrics_by_group_sex.csv&quot;, index=False)
+
+# 4) Post-processing — ThresholdOptimizer (by race)
+th_opt = ThresholdOptimizer(estimator=pipe, constraints=&quot;equalized_odds&quot;, prefit=True)
+th_opt.fit(X_train, y_train, sensitive_features=A_race)
+y_pred_th = th_opt.predict(X_test, sensitive_features=A_race_test)
+metrics_th = overall_metrics(y_test, y_pred_th.astype(int), None)
+results.append((&quot;threshold_opt_equalized_odds_race&quot;, metrics_th))
+rep_r_th = group_fairness_report(y_test, y_pred_th.astype(int), A_race_test, group_name=&quot;race&quot;)
+rep_s_th = group_fairness_report(y_test, y_pred_th.astype(int), A_sex_test, group_name=&quot;sex&quot;)
+rep_r_th.to_csv(reports_dir / &quot;mit_threshold_opt_eo_race_metrics_by_group_race.csv&quot;, index=False)
+rep_s_th.to_csv(reports_dir / &quot;mit_threshold_opt_eo_race_metrics_by_group_sex.csv&quot;, index=False)
+
+# Save overall metrics for each approach
+pd.DataFrame([dict(approach=name, **m) for name, m in results]).to_csv(reports_dir / &quot;mitigation_overall_metrics.csv&quot;, index=False)
+
+print(&quot;Saved mitigation metrics to:&quot;, reports_dir.resolve())</code></pre>
+<pre>### Comparisons: Baseline vs Mitigations (Race only)
+We compare baseline against each mitigation (Demographic Parity, Equalized Odds, Reweighting, Threshold Optimizer) with side-by-side bars for TPR (EO) and PPR (DP) by race. Figures are saved under `reports/figures/`.</pre>
+<pre><code>
+import pandas as pd
+import matplotlib.pyplot as plt
+from pathlib import Path
+
+base = Path(&quot;reports&quot;)
+figs = base / &quot;figures&quot;
+figs.mkdir(parents=True, exist_ok=True)
+
+
+baseline = pd.read_csv(base / &quot;metrics_by_group_race.csv&quot;)
+mit_dp = pd.read_csv(base / &quot;mit_dp_race_metrics_by_group_race.csv&quot;)
+mit_eo = pd.read_csv(base / &quot;mit_eo_race_metrics_by_group_race.csv&quot;)
+mit_rw = pd.read_csv(base / &quot;mit_reweight_race_metrics_by_group_race.csv&quot;)
+mit_th = pd.read_csv(base / &quot;mit_threshold_opt_eo_race_metrics_by_group_race.csv&quot;)
+
+
+races = list(baseline[&quot;race&quot;]) if &quot;race&quot; in baseline.columns else list(baseline.iloc[:,0])
+
+def plot_compare(metric_key: str, title: str, fname: str):
+    fig, axes = plt.subplots(2, 2, figsize=(12, 8), sharey=True)
+    series = [
+        (mit_dp, &quot;Demographic Parity&quot;),
+        (mit_eo, &quot;Equalized Odds&quot;),
+        (mit_rw, &quot;Reweighting&quot;),
+        (mit_th, &quot;Threshold Optimizer&quot;),
+    ]
+    for ax, (df, label) in zip(axes.flat, series):
+        
+        b = baseline.set_index(&quot;race&quot;).reindex(races)
+        m = df.set_index(&quot;race&quot;).reindex(races)
+        
+        width = 0.4
+        x = range(len(races))
+        ax.bar([i - width/2 for i in x], (b[metric_key] * 100).values, width=width, label=&quot;Baseline&quot;, color=&quot;#4C78A8&quot;)
+        ax.bar([i + width/2 for i in x], (m[metric_key] * 100).values, width=width, label=label, color=&quot;#F58518&quot;)
+        ax.set_title(label)
+        ax.set_xticks(list(x))
+        ax.set_xticklabels(races, rotation=30, ha=&quot;right&quot;)
+        ax.set_ylabel(f&quot;{metric_key} (%)&quot;)
+        
+        for i, (bv, mv) in enumerate(zip((b[metric_key]*100).values, (m[metric_key]*100).values)):
+            if pd.notna(bv):
+                ax.text(i - width/2, bv + 1, f&quot;{bv:.1f}&quot;, ha=&quot;center&quot;, va=&quot;bottom&quot;, fontsize=8)
+            if pd.notna(mv):
+                ax.text(i + width/2, mv + 1, f&quot;{mv:.1f}&quot;, ha=&quot;center&quot;, va=&quot;bottom&quot;, fontsize=8)
+    fig.suptitle(title)
+    handles, labels = axes[0,0].get_legend_handles_labels()
+    fig.legend(handles, labels, loc=&quot;upper center&quot;, ncol=2)
+    fig.tight_layout(rect=[0, 0, 1, 0.95])
+    plt.savefig(figs / fname, dpi=150)
+    plt.show()
+
+
+plot_compare(&quot;TPR&quot;, &quot;Equal Opportunity (TPR) — Baseline vs Mitigations (Race)&quot;, &quot;compare_tpr_race.png&quot;)
+
+plot_compare(&quot;PPR&quot;, &quot;Demographic Parity (PPR) — Baseline vs Mitigations (Race)&quot;, &quot;compare_ppr_race.png&quot;)
+
+print(&quot;Saved comparison plots to:&quot;, figs.resolve())</code></pre>
+<pre><code></code></pre>
+</body></html>
